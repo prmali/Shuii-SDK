@@ -2,7 +2,7 @@ import json
 import argparse
 
 parser = argparse.ArgumentParser(description='Rarity retriever')
-parser.add_argument('--colname', action="store",
+parser.add_argument('--name', action="store",
                     dest='collection_name', default='')
 parser.add_argument('--tokenid', action="store",
                     dest='token_id', default=0)
