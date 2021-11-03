@@ -1,12 +1,15 @@
 # Rarity Scanner
 
+Aggregate metadata info on NFTs
+Goes zoom w/ _async_
+
 ### aggregate.py
 
-#### @description
+#### description
 
 Responsible for gathering info on collection, weighing rarities, and spitting into json file
 
-#### @how-to
+#### how-to
 
 Modify the main() function towards the bottom of the file (wrapped in asyncio's run method)
 
@@ -30,7 +33,7 @@ The `main` function takes in 6 parameters
 5. Suffix of the metadata uri. Maybe the location ends in a ".json"
 6. How many times should a request be repeated on a retrieval error before moving on to the next token
 
-#### @execute
+#### execute
 
 ```sh
 python3 aggregate.py
@@ -38,11 +41,11 @@ python3 aggregate.py
 
 ### retrieve.py
 
-#### @description
+#### description
 
 Get the info on a specific token id.
 
-#### @how-to
+#### how-to
 
 No modification is needed. If you wish to hardcode the collection and tokenId values, uncomment out the last line
 
@@ -55,8 +58,16 @@ The `main` function takes in 2 parameters
 1. Name of the NFT project saved to a json file
 2. The token ID you are looking to inspect
 
-#### @execute
+#### execute
 
 ```sh
 python3 retrieve.py --name 'NFT project' --tokenid 3
 ```
+
+### Whats left
+
+-   Get rarity by rarity ID
+-   Interface to visualize
+-   _containerize_
+-   improve efficiency
+-   work around brute force retry method
