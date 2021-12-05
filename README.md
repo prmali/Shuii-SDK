@@ -1,6 +1,7 @@
 # Rarity Scanner
 
 Aggregate metadata info on NFTs
+
 Accuracy on par w/ legitimate tools afaik
 
 ### aggregate.py
