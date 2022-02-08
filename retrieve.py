@@ -11,9 +11,13 @@ args = parser.parse_args()
 
 def main(project_name, tokenId):
     f = json.load(open('%s.json' % (project_name)))
-    for rank in range(len(f['weights'])):
-        if f["weights"][rank]["tokenId"] == tokenId:
-            return rank, f["weights"][rank]
+    for pos in range(len(f['weights'])):
+        try:
+            if f['weights'][pos]['token_id'] == tokenId:
+                return f['weights'][pos]['rank'], f['weights'][pos]
+        except:
+            if f['weights'][pos]['tokenId'] == tokenId:
+                return f['weights'][pos]['rank'], f['weights'][pos]
 
 
 print(main(args.collection_name, int(args.token_id)))

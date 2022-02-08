@@ -4,6 +4,7 @@ import aiohttp
 import ssl
 import certifi
 from functools import cmp_to_key
+import time
 
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
@@ -70,20 +71,31 @@ def compare(a, b):
 
 
 async def main(project_name, token_uri, limit, starting_index=0, suffix="", retry_limit=500):
+    start_time = time.time()
     async with aiohttp.ClientSession(trust_env=True) as session:
-        print("===COUNTING===")
+        print("--- COUNTING ---")
         await asyncio.gather(*[count(token_uri, num, session, suffix, retry_limit) for num in range(starting_index, starting_index + limit)])
 
         for attributes in aggregate.values():
             for attribute in attributes.values():
                 composed.append(attribute)
 
-        print("===WEIGHING===")
+        print("--- WEIGHING ---")
         await asyncio.gather(*[assign(attribute, limit) for attribute in composed])
 
-        print("===SORTING===")
+        print("--- SORTING ---")
         weights.sort(key=cmp_to_key(compare), reverse=True)
 
+        print("--- RANKING ---")
+        current_rank, prev_weight = 1, weights[0]['weight']
+        for weightIndex in range(len(weights)):
+            if weights[weightIndex]['weight'] != prev_weight:
+                prev_weight = weights[weightIndex]['weight']
+                current_rank += 1
+
+            weights[weightIndex]['rank'] = current_rank
+
+    finalized_time = time.time() - start_time
     with open("%s.json" % (project_name.lower().replace(" ", "")), "w") as dumped:
         dumped.write(json.dumps({
             "project_name": project_name,
@@ -93,16 +105,19 @@ async def main(project_name, token_uri, limit, starting_index=0, suffix="", retr
             "starting_index": starting_index,
             "aggregate": aggregate,
             "weights": weights,
+            "time_to_sync": finalized_time
         }))
 
-    print("===DONE===")
+    print("--- DONE ---")
+    print("--- %s seconds ---" % (finalized_time))
 
 asyncio.run(main(
-    "Doodles",
-    "https://gateway.ipfs.io/ipfs/QmPMc4tcBsMqLRuCQtPmPe84bpSjrC3Ky7t3JWuHXYB4aS",
+    "Long Losts",
+    # ipfs://QmVLbfDpBj9XxXCCgWwhshpAQE9X23skZ8SfpUPn29HhnQ
+    "https://gateway.ipfs.io/ipfs/QmTH5PEHHDi7hPFPyGJjTusGurXrnXiPo3chrpwNnPkHNB",
     limit=10000,
-    starting_index=0,
-    suffix='',
+    starting_index=1,
+    suffix='.json',
     retry_limit=500
 ))
 
