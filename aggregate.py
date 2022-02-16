@@ -22,6 +22,10 @@ async def count(token_uri, token_id, session, suffix, retry_limit):
                 decoded_res = json.loads(res.decode("utf8"))
 
                 attributes = decoded_res["attributes"]
+                attributes.append({
+                    'trait_type': 'num_traits',
+                    'value': len(attributes)
+                })
 
                 weights.append({
                     "token_id": token_id,
@@ -73,6 +77,8 @@ def compare(a, b):
 async def main(project_name, token_uri, limit, starting_index=0, suffix="", retry_limit=500):
     start_time = time.time()
     async with aiohttp.ClientSession(trust_env=True) as session:
+        token_uri = token_uri.replace(
+            "ipfs://", "https://gateway.ipfs.io/ipfs/")
         print("--- COUNTING ---")
         await asyncio.gather(*[count(token_uri, num, session, suffix, retry_limit) for num in range(starting_index, starting_index + limit)])
 
@@ -112,12 +118,13 @@ async def main(project_name, token_uri, limit, starting_index=0, suffix="", retr
     print("--- %s seconds ---" % (finalized_time))
 
 asyncio.run(main(
-    "Long Losts",
-    # ipfs://QmVLbfDpBj9XxXCCgWwhshpAQE9X23skZ8SfpUPn29HhnQ
-    "https://gateway.ipfs.io/ipfs/QmTH5PEHHDi7hPFPyGJjTusGurXrnXiPo3chrpwNnPkHNB",
-    limit=10000,
-    starting_index=1,
-    suffix='.json',
+    "Tasty Bones",
+    "https://tastybones.mypinata.cloud/ipfs/QmbFXWFv3N16oP5K1BCiJAyT25ncajST69cXueLpu5MvhU",
+    # "ipfs://QmVLbfDpBj9XxXCCgWwhshpAQE9X23skZ8SfpUPn29HhnQ",
+    # "https://gateway.ipfs.io/ipfs/QmbKMjG6AZvLuNr7NynifQBknPPmoJiBqb1RszwdZmDtbb",
+    limit=5049,
+    starting_index=0,
+    suffix='',
     retry_limit=500
 ))
 
