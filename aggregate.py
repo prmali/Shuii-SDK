@@ -5,6 +5,9 @@ import ssl
 import certifi
 from functools import cmp_to_key
 import time
+import os
+from twilio.rest import Client
+import env
 
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
@@ -16,38 +19,43 @@ composed = []
 
 async def count(token_uri, token_id, session, suffix, retry_limit):
     for attempt in range(retry_limit):  # Until I can get around rate limits >:(
-        try:
-            async with session.get(url="%s/%s%s" % (token_uri, token_id, suffix), ssl=SSL_CONTEXT) as response:
-                res = await response.read()
-                decoded_res = json.loads(res.decode("utf8"))
+        # try:
+        async with session.get(url="%s/%s%s" % (token_uri, token_id, suffix), ssl=SSL_CONTEXT) as response:
+            res = await response.read()
+            decoded_res = json.loads(res.decode("utf8"))
 
-                attributes = decoded_res["attributes"]
-                attributes.append({
-                    'trait_type': 'num_traits',
-                    'value': len(attributes)
-                })
+            attributes = decoded_res["attributes"]
+            for i in range(len(attributes)):
+                if attributes[i]['trait_type'] == "Birthday":
+                    del attributes[i]
+                    break
 
-                weights.append({
-                    "token_id": token_id,
-                    "attributes": attributes
-                })
+            attributes.append({
+                'trait_type': 'num_traits',
+                'value': len([attrib for attrib in attributes if attrib['value']])
+            })
 
-                for i in attributes:
-                    if not i["trait_type"] in aggregate:
-                        aggregate[i["trait_type"]] = {}
+            weights.append({
+                "token_id": token_id,
+                "attributes": attributes
+            })
 
-                    if not i["value"] in aggregate[i["trait_type"]]:
-                        aggregate[i["trait_type"]][i["value"]] = {
-                            "count": 0,
-                            "weight": 0
-                        }
+            for i in attributes:
+                if not i["trait_type"] in aggregate:
+                    aggregate[i["trait_type"]] = {}
 
-                    aggregate[i["trait_type"]][i["value"]]["count"] += 1
+                if not i["value"] in aggregate[i["trait_type"]]:
+                    aggregate[i["trait_type"]][i["value"]] = {
+                        "count": 0,
+                        "weight": 0
+                    }
 
-                #print("✅:", token_id)
-                return
-        except Exception as e:
-            continue
+                aggregate[i["trait_type"]][i["value"]]["count"] += 1
+
+            #print("✅:", token_id)
+            return
+        # except Exception as e:
+        #    continue
 
     invalids.append(token_id)
     print("❌:", token_id)
@@ -75,6 +83,10 @@ def compare(a, b):
 
 
 async def main(project_name, token_uri, limit, starting_index=0, suffix="", retry_limit=500):
+    account_sid = os.getenv('TWILIO_ACCOUNT_SID')
+    auth_token = os.getenv('TWILIO_AUTH_TOKEN')
+    client = Client(account_sid, auth_token)
+
     start_time = time.time()
     async with aiohttp.ClientSession(trust_env=True) as session:
         token_uri = token_uri.replace(
@@ -117,13 +129,23 @@ async def main(project_name, token_uri, limit, starting_index=0, suffix="", retr
     print("--- DONE ---")
     print("--- %s seconds ---" % (finalized_time))
 
+    client.messages.create(
+        body=f'Analyzed {project_name} in {round(finalized_time, 2)}s',
+        from_=os.getenv("TWILIO_NUMBER"),
+        to=os.getenv("NUMBER")
+    )
+
+    print("--- MSGED ---")
+
+
 asyncio.run(main(
-    "Tasty Bones",
-    "https://tastybones.mypinata.cloud/ipfs/QmbFXWFv3N16oP5K1BCiJAyT25ncajST69cXueLpu5MvhU",
+    "Champions Ascension",
+    "https://champions.io/champions/nfts",
+    # "ipfs://QmUTFezR7ubZipbTr6HmSM9CVHmXYhXqAsiKQMaC3CG3o4",
     # "ipfs://QmVLbfDpBj9XxXCCgWwhshpAQE9X23skZ8SfpUPn29HhnQ",
     # "https://gateway.ipfs.io/ipfs/QmbKMjG6AZvLuNr7NynifQBknPPmoJiBqb1RszwdZmDtbb",
-    limit=5049,
-    starting_index=0,
+    limit=10000,
+    starting_index=1,
     suffix='',
     retry_limit=500
 ))
