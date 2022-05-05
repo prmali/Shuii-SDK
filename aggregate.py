@@ -19,43 +19,43 @@ composed = []
 
 async def count(token_uri, token_id, session, suffix, retry_limit):
     for attempt in range(retry_limit):  # Until I can get around rate limits >:(
-        # try:
-        async with session.get(url="%s/%s%s" % (token_uri, token_id, suffix), ssl=SSL_CONTEXT) as response:
-            res = await response.read()
-            decoded_res = json.loads(res.decode("utf8"))
+        try:
+            async with session.get(url="%s/%s%s" % (token_uri, token_id, suffix), ssl=SSL_CONTEXT) as response:
+                res = await response.read()
+                decoded_res = json.loads(res.decode("utf8"))
 
-            attributes = decoded_res["attributes"]
-            for i in range(len(attributes)):
-                if attributes[i]['trait_type'] == "Birthday":
-                    del attributes[i]
-                    break
+                attributes = decoded_res["attributes"]
+                for i in range(len(attributes)):
+                    if attributes[i]['trait_type'] == "Birthday":
+                        del attributes[i]
+                        break
 
-            attributes.append({
-                'trait_type': 'num_traits',
-                'value': len([attrib for attrib in attributes if attrib['value']])
-            })
+                attributes.append({
+                    'trait_type': 'num_traits',
+                    'value': len([attrib for attrib in attributes if attrib['value']])
+                })
 
-            weights.append({
-                "token_id": token_id,
-                "attributes": attributes
-            })
+                weights.append({
+                    "token_id": token_id,
+                    "attributes": attributes
+                })
 
-            for i in attributes:
-                if not i["trait_type"] in aggregate:
-                    aggregate[i["trait_type"]] = {}
+                for i in attributes:
+                    if not i["trait_type"] in aggregate:
+                        aggregate[i["trait_type"]] = {}
 
-                if not i["value"] in aggregate[i["trait_type"]]:
-                    aggregate[i["trait_type"]][i["value"]] = {
-                        "count": 0,
-                        "weight": 0
-                    }
+                    if not i["value"] in aggregate[i["trait_type"]]:
+                        aggregate[i["trait_type"]][i["value"]] = {
+                            "count": 0,
+                            "weight": 0
+                        }
 
-                aggregate[i["trait_type"]][i["value"]]["count"] += 1
+                    aggregate[i["trait_type"]][i["value"]]["count"] += 1
 
-            #print("✅:", token_id)
-            return
-        # except Exception as e:
-        #    continue
+                #print("✅:", token_id)
+                return
+        except Exception as e:
+            continue
 
     invalids.append(token_id)
     print("❌:", token_id)
@@ -139,15 +139,14 @@ async def main(project_name, token_uri, limit, starting_index=0, suffix="", retr
 
 
 asyncio.run(main(
-    "Champions Ascension",
-    "https://champions.io/champions/nfts",
-    # "ipfs://QmUTFezR7ubZipbTr6HmSM9CVHmXYhXqAsiKQMaC3CG3o4",
-    # "ipfs://QmVLbfDpBj9XxXCCgWwhshpAQE9X23skZ8SfpUPn29HhnQ",
+    "Otherdeeds for Otherside",
+    "https://api.otherside.xyz/lands",
+    # "ipfs://QmZEHrvfQyBDGYt6cdBn5cTC4VndCA9mGWGz9Z3pJokG7U",
     # "https://gateway.ipfs.io/ipfs/QmbKMjG6AZvLuNr7NynifQBknPPmoJiBqb1RszwdZmDtbb",
-    limit=10000,
-    starting_index=1,
+    limit=92497,
+    starting_index=0,
     suffix='',
-    retry_limit=500
+    retry_limit=100
 ))
 
 print("INVALIDS:", invalids)
