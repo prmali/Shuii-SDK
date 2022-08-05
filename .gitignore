@@ -1,2 +1,6 @@
 *.json
 env.py
+
+database.ini
+
+__pycache__
