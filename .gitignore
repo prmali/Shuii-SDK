@@ -1,6 +1,17 @@
 *.json
 env.py
+.env
 
 database.ini
 
+# Python specific
+*.py[cgo]
+*.egg-info/
+./build/
+dist/
+build/
+Pipfile.lock
 __pycache__
+
+.DS_Store
+*/.DS_Store
