@@ -1,14 +1,16 @@
-# ERC721 Standard
+# EthereumRC721 Standard
 
 import json
 import asyncio
 import aiohttp
 import ssl
 import certifi
-
-from functools import cmp_to_key
 import time
 import os
+
+from decouple import config
+from functools import cmp_to_key
+from shuii.aggregate.clients.EthereumClient import EthereumClient
 
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
@@ -85,20 +87,25 @@ def compare(a, b):
     return weigh(a) - weigh(b)
 
 
-async def main(project_name, token_uri, limit, starting_index=0, suffix="", retry_limit=500):
+async def main(address, retry_limit=500):
     start_time = time.time()
+    ALCHEMY_API_KEY = config('ALCHEMY_API_KEY')
+    ethClient = EthereumClient(ALCHEMY_API_KEY)
+    collection_metadata = ethClient.query(address)
+    token_uri = collection_metadata['token_uri'].replace(
+        "ipfs://", "https://gateway.ipfs.io/ipfs/")
+    suffix = collection_metadata['suffix']
+
     async with aiohttp.ClientSession(trust_env=True) as session:
-        token_uri = token_uri.replace(
-            "ipfs://", "https://gateway.ipfs.io/ipfs/")
         print("--- COUNTING ---")
-        await asyncio.gather(*[count(token_uri, num, session, suffix, retry_limit) for num in range(starting_index, starting_index + limit)])
+        await asyncio.gather(*[count(token_uri, num, session, suffix, retry_limit) for num in range(collection_metadata['starting_index'], collection_metadata['starting_index'] + collection_metadata['total_supply'])])
 
         for attributes in aggregate.values():
             for attribute in attributes.values():
                 composed.append(attribute)
 
         print("--- WEIGHING ---")
-        await asyncio.gather(*[assign(attribute, limit) for attribute in composed])
+        await asyncio.gather(*[assign(attribute, collection_metadata['total_supply']) for attribute in composed])
 
         print("--- SORTING ---")
         weights.sort(key=cmp_to_key(compare), reverse=True)
@@ -113,36 +120,30 @@ async def main(project_name, token_uri, limit, starting_index=0, suffix="", retr
             weights[weightIndex]['rank'] = current_rank
 
     finalized_time = time.time() - start_time
-    with open("%s.json" % (project_name.lower().replace(" ", "")), "w") as dumped:
+    with open("%s.json" % (collection_metadata['name'].lower().replace(" ", "")), "w") as dumped:
         dumped.write(json.dumps({
-            "project_name": project_name,
-            "token_uri": token_uri,
-            "limit": limit,
-            "suffix": suffix,
-            "starting_index": starting_index,
-            "aggregate": aggregate,
-            "weights": weights,
-            "time_to_sync": finalized_time
+            'network': "ETH",
+            'address': collection_metadata['address'],
+            'project_name': collection_metadata['name'],
+            'project_symbol': collection_metadata['symbol'],
+            'token_uri': token_uri,
+            'total_supply': collection_metadata['total_supply'],
+            'suffix': collection_metadata['suffix'],
+            'starting_index': collection_metadata['starting_index'],
+            'time_to_sync': finalized_time,
+            'aggregate': aggregate,
+            'weights': weights,
         }))
 
     print("--- DONE ---")
     print("--- %s seconds ---" % (finalized_time))
 
 
-def run(project_name, token_uri, limit, starting_index, suffix, retry_limit):
+def run(address, retry_limit):
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(
-        main(project_name, token_uri, limit, starting_index, suffix, retry_limit))
+    loop.run_until_complete(main(address, retry_limit))
     loop.close()
 
 
-run("Otherdeeds for Otherside",
-    "https://api.otherside.xyz/lands",
-    # "ipfs://QmZEHrvfQyBDGYt6cdBn5cTC4VndCA9mGWGz9Z3pJokG7U",
-    # "https://gateway.ipfs.io/ipfs/QmbKMjG6AZvLuNr7NynifQBknPPmoJiBqb1RszwdZmDtbb",
-    limit=10,
-    starting_index=0,
-    suffix='',
-    retry_limit=100)
-
-print("INVALIDS:", invalids)
+#run("0x8a90cab2b38dba80c64b7734e58ee1db38b8992e", retry_limit=100)
+#print("INVALIDS:", invalids)

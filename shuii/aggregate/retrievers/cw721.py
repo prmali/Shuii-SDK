@@ -10,9 +10,10 @@ from functools import cmp_to_key
 import time
 import os
 
+from shuii.aggregate.clients.CosmWasmClient import CosmWasmClient
+
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
-limit = 0
 metadata = []
 weights = []
 aggregate = {}
@@ -30,7 +31,7 @@ async def count(token_id):
     })
 
     weights.append({
-        "token_id": decoded_res['edition'],
+        "token_id": decoded_res['edition'] or token_id,
         "attributes": attributes
     })
 
@@ -71,24 +72,32 @@ def compare(a, b):
     return weigh(a) - weigh(b)
 
 
-async def main(project_name, metadata_uri):
-    global metadata, limit
+# detect project name
+async def main(address, chain):
+    global metadata
     start_time = time.time()
+    cwClient = CosmWasmClient(chain)
+    collection_metadata = cwClient.query(address)
+
     async with aiohttp.ClientSession(trust_env=True) as session:
-        async with session.get(url=metadata_uri, ssl=SSL_CONTEXT) as response:
+        async with session.get(url=collection_metadata['token_uri'], ssl=SSL_CONTEXT) as response:
             res = await response.read()
             metadata = json.loads(res.decode("utf8"))
-            limit = len(metadata)
-            print(limit)
+            collection_metadata['total_supply'] = len(metadata)
+            collection_metadata['name'] = ' '.join(
+                metadata[0]['name'].split(' ')[:-1])
+            collection_metadata['symbol'] = ''.join(
+                s[0] for s in collection_metadata['name'].split(' '))
 
-            await asyncio.gather(*[count(num) for num in range(limit)])
+            print("--- COUNTING ---")
+            await asyncio.gather(*[count(num) for num in range(collection_metadata['total_supply'])])
 
             for attributes in aggregate.values():
                 for attribute in attributes.values():
                     composed.append(attribute)
 
             print("--- WEIGHING ---")
-            await asyncio.gather(*[assign(attribute, limit) for attribute in composed])
+            await asyncio.gather(*[assign(attribute, collection_metadata['total_supply']) for attribute in composed])
 
             print("--- SORTING ---")
             weights.sort(key=cmp_to_key(compare), reverse=True)
@@ -103,28 +112,31 @@ async def main(project_name, metadata_uri):
                 weights[weightIndex]['rank'] = current_rank
 
     finalized_time = time.time() - start_time
-    with open("%s.json" % (project_name.lower().replace(" ", "")), "w") as dumped:
+    with open("%s.json" % (collection_metadata['name'].lower().replace(" ", "")), "w") as dumped:
         dumped.write(json.dumps({
-            "project_name": project_name,
-            "token_uri": metadata_uri,
-            "limit": limit,
-            "aggregate": aggregate,
-            "weights": weights,
-            "time_to_sync": finalized_time
+            'network': chain.upper(),
+            'address': collection_metadata['address'],
+            'project_name': collection_metadata['name'],
+            'project_symbol': collection_metadata['symbol'],
+            'token_uri': collection_metadata['token_uri'],
+            'total_supply': collection_metadata['total_supply'],
+            'suffix': collection_metadata['suffix'],
+            'starting_index': collection_metadata['starting_index'],
+            'time_to_sync': finalized_time,
+            'aggregate': aggregate,
+            'weights': weights,
         }))
 
     print("--- DONE ---")
     print("--- %s seconds ---" % (finalized_time))
 
 
-def run(project_name, metadata_uri):
+def run(address, chain):
     loop = asyncio.get_event_loop()
     loop.run_until_complete(
-        main(project_name, metadata_uri))
+        main(address, chain))
     loop.close()
 
 
-run("CwTest2 Issue2",
-    "https://hopegalaxy.mypinata.cloud/ipfs/QmX1i7DKeHyDHrnhFT8ab4E5mtfgtGH4XQ29ETi3WsGS5a/_metadata.json")
-
-print("INVALIDS:", invalids)
+#run('juno1e229el8t4lu4rx7xeekc77zspxa2gz732ld0e6a5q0sr0l3gm78stuvc5g', 'juno-1')
+#print("INVALIDS:", invalids)
