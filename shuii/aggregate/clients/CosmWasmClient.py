@@ -8,6 +8,18 @@ configs = {
         "fee_minimum_gas_price": 0.0025,
         "fee_denomination": "ujuno",
         "staking_denomination": "ujuno",
+    },
+    'stargaze-1': {
+        "url": "rest+https://rest.stargaze-apis.com/",
+        "fee_minimum_gas_price": 0.0025,
+        "fee_denomination": "ustars",
+        "staking_denomination": "ustars",
+    },
+    'osmosis-1': {
+        "url": "rpc+https://rpc.osmosis.interbloc.org",
+        "fee_minimum_gas_price": 0.0001,
+        "fee_denomination": "uosmo",
+        "staking_denomination": "uosmo",
     }
 }
 
@@ -101,9 +113,15 @@ class CosmWasmClient:
             uri = uri.split('/')
             uri = '/'.join(uri[:-1])
             return uri + '/_metadata.json'
+        else:
+            uri = uri.split('/')
+            uri = '/'.join(uri[:-1])
+            return uri
 
         raise Exception("CosmWasmClient: Unexpected URI format")
 
 
 # client = CosmWasmClient('juno-1')
 # print(client.query('juno1e229el8t4lu4rx7xeekc77zspxa2gz732ld0e6a5q0sr0l3gm78stuvc5g'))
+# client = CosmWasmClient('stargaze-1')
+# print(client.query('stars1rz8jkes33jxqf79t707s68yary3969faqfz59lvwnxjy4j65q7es62j098'))
