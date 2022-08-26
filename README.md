@@ -1,5 +1,7 @@
 # Rarity Scanner
 
+# TOOL HAS BEEN MIGRATED TO [HERE](https://github.com/Shuii-Tool/pyShuii)
+
 Aggregate metadata info on NFTs
 
 Accuracy on par w/ legitimate tools afaik
