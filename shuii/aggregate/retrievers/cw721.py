@@ -10,7 +10,8 @@ from functools import cmp_to_key
 import time
 import os
 
-from shuii.aggregate.clients.CosmWasmClient import CosmWasmClient
+from shuii.aggregate.clients import CosmWasmClient
+from shuii.aggregate.indexers import SingleDocument, MultiDocument
 
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
@@ -77,7 +78,7 @@ async def main(address, chain):
     global metadata
     start_time = time.time()
     cwClient = CosmWasmClient(chain)
-    collection_metadata = cwClient.query(address)
+    collection_metadata = cwClient.getCollectionMetadata(address)
 
     async with aiohttp.ClientSession(trust_env=True) as session:
         async with session.get(url=collection_metadata['token_uri'], ssl=SSL_CONTEXT) as response:

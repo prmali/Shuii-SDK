@@ -10,7 +10,8 @@ import os
 
 from decouple import config
 from functools import cmp_to_key
-from shuii.aggregate.clients.EthereumClient import EthereumClient
+from shuii.aggregate.clients import EthereumClient
+from shuii.aggregate.indexers import MultiDocument
 
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
@@ -24,46 +25,30 @@ proxies = ['socks5://192.111.129.145:16894',
            'socks5://98.162.25.23:4145']
 
 
-async def count(token_uri, token_id, session, suffix, retry_limit):
-    for attempt in range(retry_limit):  # Until I can get around rate limits >:(
-        try:
-            async with session.get("%s/%s%s" % (token_uri, token_id, suffix), ssl=SSL_CONTEXT) as response:
-                res = await response.read()
-                decoded_res = json.loads(res.decode("utf8"))
+async def count(token_id, metadata):
+    attributes = metadata["attributes"]
 
-                attributes = decoded_res["attributes"]
+    attributes.append({
+        'trait_type': 'num_traits',
+        'value': len([attrib for attrib in attributes if attrib['value']])
+    })
 
-                attributes.append({
-                    'trait_type': 'num_traits',
-                    'value': len([attrib for attrib in attributes if attrib['value']])
-                })
+    weights.append({
+        "token_id": token_id,
+        "attributes": attributes
+    })
 
-                weights.append({
-                    "token_id": token_id,
-                    "attributes": attributes
-                })
+    for i in attributes:
+        if not i["trait_type"] in aggregate:
+            aggregate[i["trait_type"]] = {}
 
-                for i in attributes:
-                    if not i["trait_type"] in aggregate:
-                        aggregate[i["trait_type"]] = {}
+        if not i["value"] in aggregate[i["trait_type"]]:
+            aggregate[i["trait_type"]][i["value"]] = {
+                "count": 0,
+                "weight": 0
+            }
 
-                    if not i["value"] in aggregate[i["trait_type"]]:
-                        aggregate[i["trait_type"]][i["value"]] = {
-                            "count": 0,
-                            "weight": 0
-                        }
-
-                    aggregate[i["trait_type"]][i["value"]]["count"] += 1
-
-                # print("✅:", token_id)
-                return
-        except Exception as e:
-            # log
-            continue
-
-    # log
-    invalids.append(token_id)
-    print("❌:", token_id)
+        aggregate[i["trait_type"]][i["value"]]["count"] += 1
 
 
 async def assign(attribute, limit):
@@ -91,35 +76,41 @@ async def main(address, retry_limit=500):
     start_time = time.time()
     ALCHEMY_API_KEY = config('ALCHEMY_API_KEY')
     ethClient = EthereumClient(ALCHEMY_API_KEY)
-    collection_metadata = ethClient.query(address)
+    indexer = MultiDocument(retry_limit)
+    collection_metadata = ethClient.getCollectionMetadata(address)
     token_uri = collection_metadata['token_uri'].replace(
         "ipfs://", "https://gateway.ipfs.io/ipfs/")
     suffix = collection_metadata['suffix']
 
-    async with aiohttp.ClientSession(trust_env=True) as session:
-        print("--- COUNTING ---")
-        await asyncio.gather(*[count(token_uri, num, session, suffix, retry_limit) for num in range(collection_metadata['starting_index'], collection_metadata['starting_index'] + collection_metadata['total_supply'])])
+    print("--- GATHER ---")
+    await asyncio.gather(*[indexer.create_job(token_id, "%s/%s%s" % (token_uri, token_id, suffix)) for token_id in range(collection_metadata['starting_index'], collection_metadata['starting_index'] + collection_metadata['total_supply'])])
+    await indexer.execute_jobs()
 
-        for attributes in aggregate.values():
-            for attribute in attributes.values():
-                composed.append(attribute)
+    print("--- COUNTING ---")
+    await asyncio.gather(*[count(token_id, indexer.results[token_id]) for token_id in indexer.results])
+    # await asyncio.gather(*[count(token_uri, num, session, suffix, retry_limit) for num in range(collection_metadata['starting_index'], collection_metadata['starting_index'] + collection_metadata['total_supply'])])
 
-        print("--- WEIGHING ---")
-        await asyncio.gather(*[assign(attribute, collection_metadata['total_supply']) for attribute in composed])
+    for attributes in aggregate.values():
+        for attribute in attributes.values():
+            composed.append(attribute)
 
-        print("--- SORTING ---")
-        weights.sort(key=cmp_to_key(compare), reverse=True)
+    print("--- WEIGHING ---")
+    await asyncio.gather(*[assign(attribute, collection_metadata['total_supply']) for attribute in composed])
 
-        print("--- RANKING ---")
-        current_rank, prev_weight = 1, weights[0]['weight']
-        for weightIndex in range(len(weights)):
-            if weights[weightIndex]['weight'] != prev_weight:
-                prev_weight = weights[weightIndex]['weight']
-                current_rank += 1
+    print("--- SORTING ---")
+    weights.sort(key=cmp_to_key(compare), reverse=True)
 
-            weights[weightIndex]['rank'] = current_rank
+    print("--- RANKING ---")
+    current_rank, prev_weight = 1, weights[0]['weight']
+    for weightIndex in range(len(weights)):
+        if weights[weightIndex]['weight'] != prev_weight:
+            prev_weight = weights[weightIndex]['weight']
+            current_rank += 1
 
-    finalized_time = time.time() - start_time
+        weights[weightIndex]['rank'] = current_rank
+
+    finish_time = time.time()
+    finalized_time = finish_time - start_time
     with open("%s.json" % (collection_metadata['name'].lower().replace(" ", "")), "w") as dumped:
         dumped.write(json.dumps({
             'network': "ETH",
@@ -130,6 +121,8 @@ async def main(address, retry_limit=500):
             'total_supply': collection_metadata['total_supply'],
             'suffix': collection_metadata['suffix'],
             'starting_index': collection_metadata['starting_index'],
+            'time_started': start_time,
+            'time_finalized': finish_time,
             'time_to_sync': finalized_time,
             'aggregate': aggregate,
             'weights': weights,
@@ -145,5 +138,5 @@ def run(address, retry_limit):
     loop.close()
 
 
-#run("0x8a90cab2b38dba80c64b7734e58ee1db38b8992e", retry_limit=100)
+run("0x8a90cab2b38dba80c64b7734e58ee1db38b8992e", retry_limit=100)
 #print("INVALIDS:", invalids)
