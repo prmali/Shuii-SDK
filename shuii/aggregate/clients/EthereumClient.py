@@ -2,10 +2,6 @@ import os
 import json
 from web3 import Web3
 
-# f = open(os.path.join(os.path.dirname(__file__),
-#                       'abis', 'erc721.json'))
-# erc721abi = json.load(f)
-
 erc721abi = [
     {
         "inputs": [],
@@ -48,7 +44,7 @@ class EthereumClient:
         self.w3 = Web3(Web3.HTTPProvider(
             f'https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}'))
 
-    def query(self, address):
+    def getCollectionMetadata(self, address):
         try:
             address = Web3.toChecksumAddress(address)
             contract = self.w3.eth.contract(address, abi=self.abi)
@@ -82,4 +78,4 @@ class EthereumClient:
                 'suffix': suffix,
             }
         except:
-            raise Exception("Something broke. Whoopsies")
+            raise Exception("Unable to get collection metadata. Whoopsies")

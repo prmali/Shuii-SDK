@@ -74,7 +74,7 @@ class CosmWasmClient:
             )
         )
 
-    def query(self, address):
+    def getCollectionMetadata(self, address):
         try:
             contract = LedgerContract(
                 path=None, client=self.ledger, address=address)
@@ -101,22 +101,26 @@ class CosmWasmClient:
                 'symbol': contract_info['symbol'],
                 'token_uri': self.standardize_uri(token_metadata['token_uri']),
                 'starting_index': token[-1],
-                'total_supply': '0',
+                'total_supply': 0,
                 'suffix': None
             }
         except:
-            raise Exception("Something broke whoops")
+            raise Exception(
+                "CosmWasmClient: Unable to get collection metadata. Whoopsies")
 
     def standardize_uri(self, uri):
-        if uri[len(uri) - 5:] == '.json':
-            #uri = uri[:-5]
-            uri = uri.split('/')
-            uri = '/'.join(uri[:-1])
-            return uri + '/_metadata.json'
-        else:
-            uri = uri.split('/')
-            uri = '/'.join(uri[:-1])
-            return uri
+        uri = uri.split('/')
+        uri = '/'.join(uri[:-1])
+        return uri
+
+        # if uri[len(uri) - 5:] == '.json':
+        #     uri = uri.split('/')
+        #     uri = '/'.join(uri[:-1])
+        #     return uri + '/_metadata.json'
+        # else:
+        #     uri = uri.split('/')
+        #     uri = '/'.join(uri[:-1])
+        #     return uri
 
         raise Exception("CosmWasmClient: Unexpected URI format")
 
